@@ -1,0 +1,127 @@
+---
+title: "Course 5 - Week 2 Assignment"
+author: "Noel Figuera"
+date: "May 15, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+* Code for reading in the dataset and/or processing the data
+* Histogram of the total number of steps taken each day
+* Mean and median number of steps taken each day
+* Time series plot of the average number of steps taken
+* The 5-minute interval that, on average, contains the maximum number of steps
+* Code to describe and show a strategy for imputing missing data
+* Histogram of the total number of steps taken each day after missing values are imputed
+* Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+* All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
+
+
+```{r }
+
+library(ggplot2)
+library(dplyr)
+
+path <- 'activity.csv'
+df <- read.csv(path,stringsAsFactors = FALSE)
+
+# load the dataset
+
+df$date <- as.Date(df$date,format="%Y-%m-%d")
+
+# create a factor with two levels, weekday or weekend
+df$weekday <- sapply(df$date, function(x) {
+      if (weekdays(x) == "Sunday" || weekdays(x)=="Saturday") {
+            return ('WEEKEND')
+      } else {
+            return ('WEEKDAY')
+      }})
+
+df$weekday <- as.factor(df$weekday)
+
+# first analysis include all nas
+df_na <- df[!is.na(df$steps),]
+
+# total steps taken by day
+s <- df_na %>% group_by(date) %>% summarise(records=n(), total_steps=sum(steps))
+
+# create an histogram
+ggplot(s, aes(total_steps)) + geom_histogram(bins=50)
+
+# calculate mean and median
+summary(s$total_steps)
+
+# calculate the average per time interval
+t <- df_na %>% group_by(interval) %>% summarise(records=n(), average_steps=mean(steps), total_steps=sum(steps))
+
+# plot the lines using ggplot2
+ggplot(t, aes(x=interval, y=average_steps)) + geom_line()
+
+# which on average contains the max?
+head(t[order(-t$average_steps),])
+#835
+
+# analyse number of complete cases vs with nas
+x <- c(length(df[!is.na(df$steps),]$steps), length(df[is.na(df$steps),]$steps))
+names(x) <- c("Complete Cases", "With NAs")
+barplot(x)
+
+# fill the na's with values using a simple strategy, substitute using the average of the 
+# interval average
+df_fill <- df
+df_fill$steps[is.na(df$steps)] <- t$average_steps[match(df$interval,t$interval)][which(is.na(df$steps))]
+
+# validate the results
+x <- c(length(df_fill[!is.na(df_fill$steps),]$steps), length(df_fill[is.na(df_fill$steps),]$steps))
+names(x) <- c("Complete Cases", "With NAs")
+barplot(x)
+
+##################################################################
+#  We repeat the whole analysis for the dataset without NAs
+
+
+# total steps taken by day
+s2 <- df_fill %>% group_by(date) %>% summarise(records=n(), total_steps=sum(steps))
+
+# create an histogram
+ggplot(s2, aes(total_steps)) + geom_histogram(bins=50)
+
+# calculate mean and median
+summary(s2$total_steps)
+
+# calculate the average per time interval
+t2 <- df_fill %>% group_by(interval) %>% summarise(records=n(), average_steps=mean(steps), total_steps=sum(steps))
+
+# plot the lines using ggplot2
+ggplot(t2, aes(x=interval, y=average_steps)) + geom_line()
+
+# which on average contains the max?
+head(t2[order(-t2$average_steps),])
+
+##################################################################
+# Identify patterns on weekdays vs weekends
+
+
+# calculate the average per time interval
+t3 <- df_fill %>% group_by(weekday, interval) %>% summarise(records=n(), average_steps=mean(steps), total_steps=sum(steps))
+
+# plot the lines using ggplot2
+ggplot(t3, aes(x=interval, y=average_steps, color=weekday)) + geom_line() + facet_grid(weekday ~ .)
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
